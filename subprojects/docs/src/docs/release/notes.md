@@ -315,6 +315,10 @@ There are no longer tasks to generate Visual Studio solution files for each comp
 The deprecated property `StartParameter.taskOutputCacheEnabled` has been removed.
 Use `StartParameter.buildCacheEnabled` instead.
 
+### Removed incubating method `BuildIdentifier.isCurrentBuild()`
+
+TBD - This method is not longer available, so that a `BuildIdentifier` instance may be used to represent a build from anywhere in the Gradle invocation.
+
 ### HttpClient library upgraded to version 4.5.5
 
 Gradle has been upgraded to embed [HttpClient version 4.5.5](https://archive.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.5.x.txt) over 4.4.1.
