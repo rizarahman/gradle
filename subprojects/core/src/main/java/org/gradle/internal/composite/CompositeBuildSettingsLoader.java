@@ -17,10 +17,10 @@
 package org.gradle.internal.composite;
 
 import org.gradle.StartParameter;
-import org.gradle.api.initialization.ConfigurableIncludedBuild;
 import org.gradle.api.internal.BuildDefinition;
 import org.gradle.api.internal.GradleInternal;
 import org.gradle.api.internal.SettingsInternal;
+import org.gradle.composite.internal.IncludedBuildInternal;
 import org.gradle.composite.internal.IncludedBuildRegistry;
 import org.gradle.initialization.IncludedBuildSpec;
 import org.gradle.initialization.NestedBuildFactory;
@@ -59,8 +59,8 @@ public class CompositeBuildSettingsLoader implements SettingsLoader {
 
             for (IncludedBuildSpec includedBuildSpec : includedBuilds) {
                 // TODO: Allow builds to inject into explicitly included builds
-                ConfigurableIncludedBuild includedBuild = includedBuildRegistry.addExplicitBuild(BuildDefinition.fromStartParameterForBuild(gradle.getStartParameter(), includedBuildSpec.rootDir, DefaultPluginRequests.EMPTY), nestedBuildFactory);
-                includedBuildSpec.configurer.execute(includedBuild);
+                IncludedBuildInternal includedBuild = includedBuildRegistry.addExplicitBuild(BuildDefinition.fromStartParameterForBuild(gradle.getStartParameter(), includedBuildSpec.rootDir, DefaultPluginRequests.EMPTY), nestedBuildFactory);
+                includedBuildSpec.configurer.execute(includedBuild.getModel());
             }
         }
 
