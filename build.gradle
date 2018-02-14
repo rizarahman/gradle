@@ -23,6 +23,7 @@ import org.gradle.jvm.toolchain.internal.JavaInstallationProbe
 plugins {
     id 'java-base'
     id 'build-types'
+//    id 'gradleCompile'
 }
 
 defaultTasks 'assemble'

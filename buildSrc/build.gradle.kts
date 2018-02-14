@@ -58,6 +58,10 @@ gradlePlugin {
             id = "pegdown"
             implementationClass = "org.gradle.plugins.pegdown.PegDownPlugin"
         }
+//        "gradleCompile" {
+//            id = "gradleCompile"
+//            implementationClass = "org.gradle.plugins.compile.GradleCompilePlugin"
+//        }
     }
 }
 
