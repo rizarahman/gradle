@@ -104,6 +104,10 @@ public class CompositeDomainObjectSet<T> extends DelegatingDomainObjectSet<T> im
         }
     }
 
+    public int collectionAmount() {
+        return getStore().collectionAmount();
+    }
+
     @SuppressWarnings({"NullableProblems", "unchecked"})
     @Override
     public Iterator<T> iterator() {
@@ -155,6 +159,10 @@ public class CompositeDomainObjectSet<T> extends DelegatingDomainObjectSet<T> im
                 }
             }
             return false;
+        }
+
+        public int collectionAmount() {
+            return store.size();
         }
 
         @Override

@@ -244,7 +244,7 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
         this.inheritedArtifacts = CompositeDomainObjectSet.create(PublishArtifact.class, ownArtifacts);
         this.allArtifacts = new DefaultPublishArtifactSet(Describables.of(displayName, "all artifacts"), inheritedArtifacts, fileCollectionFactory);
 
-        this.outgoing = instantiator.newInstance(DefaultConfigurationPublications.class, displayName, artifacts, allArtifacts, configurationAttributes, instantiator, artifactNotationParser, fileCollectionFactory, attributesFactory);
+        this.outgoing = instantiator.newInstance(DefaultConfigurationPublications.class, displayName, artifacts, new AllArtifactsProvider(), configurationAttributes, instantiator, artifactNotationParser, fileCollectionFactory, attributesFactory);
         this.rootComponentMetadataBuilder = rootComponentMetadataBuilder;
         path = domainObjectContext.projectPath(name);
     }
@@ -300,35 +300,57 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
 
     public Configuration setExtendsFrom(Iterable<Configuration> extendsFrom) {
         validateMutation(MutationType.DEPENDENCIES);
+        clearInheritedDomainObjectSets();
         for (Configuration configuration : this.extendsFrom) {
-            inheritedArtifacts.removeCollection(configuration.getAllArtifacts());
-            inheritedDependencies.removeCollection(configuration.getAllDependencies());
-            inheritedDependencyConstraints.removeCollection(configuration.getAllDependencyConstraints());
             ((ConfigurationInternal) configuration).removeMutationValidator(parentMutationValidator);
         }
         this.extendsFrom = new LinkedHashSet<Configuration>();
         for (Configuration configuration : extendsFrom) {
-            extendsFrom(configuration);
+            addExtendsFrom(configuration);
         }
         return this;
     }
 
     public Configuration extendsFrom(Configuration... extendsFrom) {
         validateMutation(MutationType.DEPENDENCIES);
+        clearInheritedDomainObjectSets();
         for (Configuration configuration : extendsFrom) {
-            if (configuration.getHierarchy().contains(this)) {
-                throw new InvalidUserDataException(String.format(
-                    "Cyclic extendsFrom from %s and %s is not allowed. See existing hierarchy: %s", this,
-                    configuration, configuration.getHierarchy()));
-            }
-            if (this.extendsFrom.add(configuration)) {
-                inheritedArtifacts.addCollection(configuration.getAllArtifacts());
-                inheritedDependencies.addCollection(configuration.getAllDependencies());
-                inheritedDependencyConstraints.addCollection(configuration.getAllDependencyConstraints());
-                ((ConfigurationInternal) configuration).addMutationValidator(parentMutationValidator);
-            }
+            addExtendsFrom(configuration);
         }
         return this;
+    }
+
+    /**
+     * Clears the cached inherited dependencies and artifact in cases the configuration
+     * is modified after getAll...() was called from the build script before.
+     */
+    private void clearInheritedDomainObjectSets() {
+        if (inheritedArtifacts.collectionAmount() > 1) {
+            for (Configuration configuration : extendsFrom) {
+                inheritedArtifacts.removeCollection(configuration.getAllArtifacts());
+            }
+        }
+        if (inheritedDependencies.collectionAmount() > 1) {
+            for (Configuration configuration : extendsFrom) {
+                inheritedDependencies.removeCollection(configuration.getAllDependencies());
+            }
+        }
+        if (inheritedDependencyConstraints.collectionAmount() > 1) {
+            for (Configuration configuration : extendsFrom) {
+                inheritedDependencyConstraints.removeCollection(configuration.getAllDependencyConstraints());
+            }
+        }
+    }
+
+    private void addExtendsFrom(Configuration configuration) {
+        if (configuration.getHierarchy().contains(this)) {
+            throw new InvalidUserDataException(String.format(
+                "Cyclic extendsFrom from %s and %s is not allowed. See existing hierarchy: %s", this,
+                configuration, configuration.getHierarchy()));
+        }
+        if (this.extendsFrom.add(configuration)) {
+            ((ConfigurationInternal) configuration).addMutationValidator(parentMutationValidator);
+        }
     }
 
     public boolean isTransitive() {
@@ -572,7 +594,18 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
     }
 
     public DependencySet getAllDependencies() {
+        computeAllDependencies();
         return allDependencies;
+    }
+
+    private void computeAllDependencies() {
+        synchronized (inheritedDependencies) {
+            if (inheritedDependencies.collectionAmount() == 1) {
+                for (Configuration configuration : extendsFrom) {
+                    inheritedDependencies.addCollection(configuration.getAllDependencies());
+                }
+            }
+        }
     }
 
     @Override
@@ -582,7 +615,18 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
 
     @Override
     public DependencyConstraintSet getAllDependencyConstraints() {
+        computeAllDependencyConstraints();
         return allDependencyConstraints;
+    }
+
+    private void computeAllDependencyConstraints() {
+        synchronized (inheritedDependencyConstraints) {
+            if (inheritedDependencyConstraints.collectionAmount() == 1) {
+                for (Configuration configuration : extendsFrom) {
+                    inheritedDependencyConstraints.addCollection(configuration.getAllDependencyConstraints());
+                }
+            }
+        }
     }
 
     public PublishArtifactSet getArtifacts() {
@@ -590,7 +634,18 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
     }
 
     public PublishArtifactSet getAllArtifacts() {
+        computeAllArtifacts();
         return allArtifacts;
+    }
+
+    private void computeAllArtifacts() {
+        synchronized (inheritedArtifacts) {
+            if (inheritedArtifacts.collectionAmount() == 1) {
+                for (Configuration configuration : extendsFrom) {
+                    inheritedArtifacts.addCollection(configuration.getAllArtifacts());
+                }
+            }
+        }
     }
 
     public Set<ExcludeRule> getExcludeRules() {
@@ -953,7 +1008,7 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
 
     @Override
     public void registerWatchPoints(FileSystemSubset.Builder builder) {
-        for (Dependency dependency : allDependencies) {
+        for (Dependency dependency : getAllDependencies()) {
             if (dependency instanceof FileCollectionDependency) {
                 FileCollection files = ((FileCollectionDependency) dependency).getFiles();
                 ((FileCollectionInternal) files).registerWatchPoints(builder);
@@ -1382,4 +1437,11 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
         }
     }
 
+    private class AllArtifactsProvider implements PublishArtifactSetProvider {
+
+        @Override
+        public PublishArtifactSet getPublishArtifactSet() {
+            return getAllArtifacts();
+        }
+    }
 }
